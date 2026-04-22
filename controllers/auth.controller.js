@@ -27,6 +27,25 @@ const buildRegisterContext = async (values = {}, error = null) => ({
     tiposComercio: await CommerceType.find().lean()
 });
 
+const normalizeText = value => value?.trim() || "";
+const normalizeEmail = value => normalizeText(value).toLowerCase();
+
+const getMailErrorMessage = error => {
+    if (!error) {
+        return "No fue posible enviar el correo.";
+    }
+
+    if (error.code === "EAUTH") {
+        return "No fue posible autenticar con Gmail. Revisa EMAIL_USER y EMAIL_PASS.";
+    }
+
+    if (error.code === "ECONNECTION" || error.code === "ETIMEDOUT") {
+        return "No fue posible conectarse al servidor de correo. Revisa tu conexion o la configuracion SMTP.";
+    }
+
+    return error.message || "No fue posible enviar el correo.";
+};
+
 export const loginView = (req, res) => {
     if (req.session.user) {
         return redirectByRole(res, req.session.user.role);
@@ -46,18 +65,19 @@ export const login = async (req, res) => {
     if (!identifier || !password) {
         return res.render("auth/login", {
             layout: "auth",
-            error: "Debes completar usuario o correo y contraseña"
+            error: "Debes completar usuario o correo y contrasena"
         });
     }
 
+    const normalizedIdentifier = normalizeEmail(identifier);
     const user = await User.findOne({
-        $or: [{ username: identifier }, { email: identifier }]
+        $or: [{ username: identifier }, { email: normalizedIdentifier }]
     });
 
     if (!user) {
         return res.render("auth/login", {
             layout: "auth",
-            error: "Las credenciales ingresadas no son válidas"
+            error: "Las credenciales ingresadas no son validas"
         });
     }
 
@@ -66,14 +86,14 @@ export const login = async (req, res) => {
     if (!valid) {
         return res.render("auth/login", {
             layout: "auth",
-            error: "Las credenciales ingresadas no son válidas"
+            error: "Las credenciales ingresadas no son validas"
         });
     }
 
     if (!user.activo) {
         return res.render("auth/login", {
             layout: "auth",
-            error: "Tu cuenta está inactiva. Revisa tu correo o contacta a un administrador"
+            error: "Tu cuenta esta inactiva. Revisa tu correo o contacta a un administrador"
         });
     }
 
@@ -97,6 +117,8 @@ export const registerView = async (req, res) => {
 };
 
 export const register = async (req, res) => {
+    let createdUserId = null;
+
     try {
         const errors = validationResult(req);
         const values = { ...req.body };
@@ -105,30 +127,26 @@ export const register = async (req, res) => {
             return res.render("auth/register", await buildRegisterContext(values, errors.array()[0].msg));
         }
 
-        const {
-            nombre,
-            apellido,
-            telefono,
-            email,
-            username,
-            role,
-            password,
-            confirmPassword,
-            horarioApertura,
-            horarioCierre,
-            tipoComercio
-        } = req.body;
-        const normalizedRole = role?.trim();
-        const generatedUsername = normalizedRole === "comercio"
-            ? email?.trim().toLowerCase()
-            : username?.trim();
+        const nombre = normalizeText(req.body.nombre);
+        const apellido = normalizeText(req.body.apellido);
+        const telefono = normalizeText(req.body.telefono);
+        const email = normalizeEmail(req.body.email);
+        const username = normalizeText(req.body.username);
+        const role = normalizeText(req.body.role);
+        const password = req.body.password;
+        const confirmPassword = req.body.confirmPassword;
+        const horarioApertura = normalizeText(req.body.horarioApertura);
+        const horarioCierre = normalizeText(req.body.horarioCierre);
+        const tipoComercio = normalizeText(req.body.tipoComercio);
 
-        if (!["cliente", "delivery", "comercio"].includes(normalizedRole)) {
+        const generatedUsername = role === "comercio" ? email : username;
+
+        if (!["cliente", "delivery", "comercio"].includes(role)) {
             return res.render("auth/register", await buildRegisterContext(values, "No puedes registrarte con ese rol"));
         }
 
         if (password !== confirmPassword) {
-            return res.render("auth/register", await buildRegisterContext(values, "Las contraseñas no coinciden"));
+            return res.render("auth/register", await buildRegisterContext(values, "Las contrasenas no coinciden"));
         }
 
         const exist = await User.findOne({
@@ -139,33 +157,30 @@ export const register = async (req, res) => {
             return res.render("auth/register", await buildRegisterContext(values, "El usuario o el correo ya existen"));
         }
 
-        if (normalizedRole === "comercio" && (!horarioApertura || !horarioCierre || !tipoComercio)) {
+        if (role === "comercio" && (!horarioApertura || !horarioCierre || !tipoComercio)) {
             return res.render("auth/register", await buildRegisterContext(values, "Completa los datos requeridos del comercio"));
         }
 
         const hashed = await bcrypt.hash(password, 10);
         const token = crypto.randomBytes(20).toString("hex");
 
-        let foto = null;
-        if (req.file) {
-            foto = "/uploads/" + req.file.filename;
-        }
-
-        await User.create({
+        const user = await User.create({
             nombre,
-            apellido: normalizedRole === "comercio" ? "" : apellido,
+            apellido: role === "comercio" ? "" : apellido,
             telefono,
             email,
             username: generatedUsername,
-            role: normalizedRole,
+            role,
             password: hashed,
             activo: false,
             token,
-            foto,
-            horarioApertura: normalizedRole === "comercio" ? horarioApertura : null,
-            horarioCierre: normalizedRole === "comercio" ? horarioCierre : null,
-            tipoComercio: normalizedRole === "comercio" ? tipoComercio : null
+            foto: req.file ? `/uploads/${req.file.filename}` : null,
+            horarioApertura: role === "comercio" ? horarioApertura : null,
+            horarioCierre: role === "comercio" ? horarioCierre : null,
+            tipoComercio: role === "comercio" ? tipoComercio : null
         });
+
+        createdUserId = user._id;
 
         const url = `${process.env.BASE_URL}/activate/${token}`;
 
@@ -185,8 +200,20 @@ export const register = async (req, res) => {
             layout: "auth"
         });
     } catch (error) {
-        console.log(error);
-        res.render("auth/register", await buildRegisterContext(req.body, "Error en el registro"));
+        if (createdUserId) {
+            await User.deleteOne({ _id: createdUserId });
+        }
+
+        if (error?.code === 11000) {
+            return res.render("auth/register", await buildRegisterContext(req.body, "El usuario o el correo ya existen"));
+        }
+
+        const errorMessage = error?.name === "ValidationError"
+            ? Object.values(error.errors)[0]?.message || "Datos invalidos"
+            : getMailErrorMessage(error);
+
+        console.log("Error en registro:", error);
+        res.render("auth/register", await buildRegisterContext(req.body, `Error en el registro: ${errorMessage}`));
     }
 };
 
@@ -196,7 +223,7 @@ export const activateAccount = async (req, res) => {
         const user = await User.findOne({ token });
 
         if (!user) {
-            return res.send("Token inválido");
+            return res.send("Token invalido");
         }
 
         user.activo = true;
@@ -220,8 +247,9 @@ export const forgotPassword = async (req, res) => {
         });
     }
 
+    const normalizedIdentifier = normalizeEmail(identifier);
     const user = await User.findOne({
-        $or: [{ email: identifier.trim() }, { username: identifier.trim() }]
+        $or: [{ email: normalizedIdentifier }, { username: identifier.trim() }]
     });
 
     if (!user) {
@@ -231,18 +259,29 @@ export const forgotPassword = async (req, res) => {
         });
     }
 
+    const previousToken = user.token;
     const token = crypto.randomBytes(20).toString("hex");
     user.token = token;
     await user.save();
 
-    const url = `${process.env.BASE_URL}/reset/${token}`;
+    try {
+        const url = `${process.env.BASE_URL}/reset/${token}`;
 
-    await transporter.sendMail({
-        from: `"AppCenar" <${process.env.EMAIL_USER}>`,
-        to: user.email,
-        subject: "Restablecimiento de contraseña",
-        html: `<a href="${url}">Cambiar contraseña</a>`
-    });
+        await transporter.sendMail({
+            from: `"AppCenar" <${process.env.EMAIL_USER}>`,
+            to: user.email,
+            subject: "Restablecimiento de contrasena",
+            html: `<a href="${url}">Cambiar contrasena</a>`
+        });
+    } catch (error) {
+        user.token = previousToken || null;
+        await user.save();
+
+        return res.render("auth/forgot", {
+            layout: "auth",
+            error: getMailErrorMessage(error)
+        });
+    }
 
     res.render("auth/check-email", {
         layout: "auth",
@@ -255,7 +294,7 @@ export const resetPasswordView = async (req, res) => {
     const user = await User.findOne({ token });
 
     if (!user) {
-        return res.send("Token inválido");
+        return res.send("Token invalido");
     }
 
     res.render("auth/reset", { token, layout: "auth" });
@@ -277,14 +316,14 @@ export const resetPassword = async (req, res) => {
         return res.render("auth/reset", {
             layout: "auth",
             token,
-            error: "Las contraseñas no coinciden"
+            error: "Las contrasenas no coinciden"
         });
     }
 
     const user = await User.findOne({ token });
 
     if (!user) {
-        return res.send("Token inválido");
+        return res.send("Token invalido");
     }
 
     user.password = await bcrypt.hash(password, 10);
@@ -306,7 +345,7 @@ export const changePassword = async (req, res) => {
 
         if (newPassword !== confirmPassword) {
             return res.render("auth/change-password", {
-                error: "Las contraseñas no coinciden"
+                error: "Las contrasenas no coinciden"
             });
         }
 
@@ -320,7 +359,7 @@ export const changePassword = async (req, res) => {
 
         if (!valid) {
             return res.render("auth/change-password", {
-                error: "La contraseña actual es incorrecta"
+                error: "La contrasena actual es incorrecta"
             });
         }
 
@@ -328,12 +367,12 @@ export const changePassword = async (req, res) => {
         await user.save();
 
         res.render("auth/change-password", {
-            success: "Contraseña actualizada correctamente"
+            success: "Contrasena actualizada correctamente"
         });
     } catch (error) {
         console.log(error);
         res.render("auth/change-password", {
-            error: "Error al cambiar la contraseña"
+            error: "Error al cambiar la contrasena"
         });
     }
 };
