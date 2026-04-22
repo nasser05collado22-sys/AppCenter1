@@ -23,6 +23,10 @@ const buildTransport = () => {
             host: smtpHost,
             port: smtpPort,
             secure: smtpSecure,
+            family: 4,
+            tls: {
+                servername: smtpHost
+            },
             connectionTimeout: 10000,
             greetingTimeout: 10000,
             socketTimeout: 10000,
@@ -37,6 +41,13 @@ const buildTransport = () => {
 
     return nodemailer.createTransport({
         service: "gmail",
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        family: 4,
+        tls: {
+            servername: "smtp.gmail.com"
+        },
         connectionTimeout: 10000,
         greetingTimeout: 10000,
         socketTimeout: 10000,
