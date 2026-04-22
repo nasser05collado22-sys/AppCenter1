@@ -160,7 +160,7 @@ export const viewMenu = async (req, res) => {
     const groupedProducts = [];
 
     for (const producto of productos) {
-        const categoryName = producto.categoria?.nombre || "Sin categoría";
+        const categoryName = producto.categoria?.nombre || "Sin categoria";
         let group = groupedProducts.find(item => item.nombre === categoryName);
 
         if (!group) {
@@ -320,7 +320,7 @@ export const checkout = async (req, res) => {
     delete cart[comercioId];
     req.session.cart = cart;
 
-    res.redirect("/cliente/orders");
+    res.redirect("/cliente");
 };
 
 export const viewOrders = async (req, res) => {
@@ -331,7 +331,30 @@ export const viewOrders = async (req, res) => {
         .sort({ createdAt: -1 })
         .lean();
 
-    res.render("cliente/orders", { orders });
+    res.render("cliente/orders", {
+        orders: orders.map(order => ({
+            ...order,
+            productosCount: order.productos?.reduce((sum, item) => sum + (item.cantidad || 0), 0) || 0
+        }))
+    });
+};
+
+export const viewOrderDetail = async (req, res) => {
+    const order = await Order.findOne({
+        _id: req.params.id,
+        cliente: req.session.user.id
+    })
+        .populate("comercio")
+        .lean();
+
+    if (!order) {
+        return res.redirect("/cliente/orders");
+    }
+
+    res.render("cliente/order-detail", {
+        order,
+        productosCount: order.productos?.reduce((sum, item) => sum + (item.cantidad || 0), 0) || 0
+    });
 };
 
 export const cancelOrder = async (req, res) => {
@@ -360,25 +383,92 @@ export const viewAddresses = async (req, res) => {
     res.render("cliente/addresses", { addresses });
 };
 
+export const createAddressView = (req, res) => {
+    res.render("cliente/address-form", {
+        mode: "create",
+        values: {}
+    });
+};
+
 export const createAddress = async (req, res) => {
     const { alias, direccion, referencia } = req.body;
 
     if (!alias?.trim() || !direccion?.trim()) {
-        const addresses = await Address.find({ cliente: req.session.user.id }).lean();
-        return res.render("cliente/addresses", {
-            addresses,
-            error: "Alias y dirección son requeridos"
+        return res.render("cliente/address-form", {
+            mode: "create",
+            values: req.body,
+            error: "Alias y direccion son requeridos"
         });
     }
 
     await Address.create({
         cliente: req.session.user.id,
-        alias,
-        direccion,
-        referencia
+        alias: alias.trim(),
+        direccion: direccion.trim(),
+        referencia: referencia?.trim() || ""
     });
 
     res.redirect("/cliente/addresses");
+};
+
+export const editAddressView = async (req, res) => {
+    const address = await Address.findOne({
+        _id: req.params.id,
+        cliente: req.session.user.id
+    }).lean();
+
+    if (!address) {
+        return res.redirect("/cliente/addresses");
+    }
+
+    res.render("cliente/address-form", {
+        mode: "edit",
+        values: address
+    });
+};
+
+export const updateAddress = async (req, res) => {
+    const address = await Address.findOne({
+        _id: req.params.id,
+        cliente: req.session.user.id
+    });
+
+    if (!address) {
+        return res.redirect("/cliente/addresses");
+    }
+
+    const { alias, direccion, referencia } = req.body;
+
+    if (!alias?.trim() || !direccion?.trim()) {
+        return res.render("cliente/address-form", {
+            mode: "edit",
+            values: {
+                ...address.toObject(),
+                ...req.body
+            },
+            error: "Alias y direccion son requeridos"
+        });
+    }
+
+    address.alias = alias.trim();
+    address.direccion = direccion.trim();
+    address.referencia = referencia?.trim() || "";
+    await address.save();
+
+    res.redirect("/cliente/addresses");
+};
+
+export const confirmDeleteAddressView = async (req, res) => {
+    const address = await Address.findOne({
+        _id: req.params.id,
+        cliente: req.session.user.id
+    }).lean();
+
+    if (!address) {
+        return res.redirect("/cliente/addresses");
+    }
+
+    res.render("cliente/delete-address", { address });
 };
 
 export const deleteAddress = async (req, res) => {

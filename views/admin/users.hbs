@@ -12,6 +12,11 @@
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-start">
             <div>
+                {{#if (eq ../role "comercio")}}
+                {{#if this.foto}}
+                <img src="{{this.foto}}" alt="{{this.nombre}}" width="72" height="72" class="rounded object-fit-cover mb-2">
+                {{/if}}
+                {{/if}}
                 <h5 class="mb-1">{{this.nombre}} {{this.apellido}}</h5>
                 <p class="mb-1"><strong>Correo:</strong> {{this.email}}</p>
                 <p class="mb-1"><strong>Telefono:</strong> {{this.telefono}}</p>

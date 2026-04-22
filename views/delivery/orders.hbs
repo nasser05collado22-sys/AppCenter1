@@ -9,7 +9,7 @@
             <p class="mb-1"><strong>Cliente:</strong> {{this.cliente.nombre}}</p>
             <p class="mb-1"><strong>Estado actual:</strong> {{this.estado}}</p>
             <p class="mb-1"><strong>Total:</strong> RD$ {{formatCurrency this.total}}</p>
-            <p class="mb-0"><strong>Productos:</strong> {{this.productos.length}}</p>
+            <p class="mb-0"><strong>Productos:</strong> {{this.productosCount}}</p>
         </div>
 
         <form method="POST" action="/delivery/orders/accept/{{this._id}}">

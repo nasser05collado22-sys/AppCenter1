@@ -6,6 +6,11 @@ const categorySchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    descripcion: {
+        type: String,
+        required: true,
+        trim: true
+    },
     comercio: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",

@@ -35,11 +35,14 @@
                         <p class="mb-0"><strong>Correo:</strong> {{this.email}}</p>
                     </div>
                     {{#if (ne this._id ../user.id)}}
-                    <form method="POST" action="/admin/users/toggle/{{this._id}}">
-                        <button class="btn {{#if this.activo}}btn-outline-danger{{else}}btn-success{{/if}}">
-                            {{#if this.activo}}Inactivar{{else}}Activar{{/if}}
-                        </button>
-                    </form>
+                    <div class="d-flex gap-2">
+                        <a href="/admin/admins/{{this._id}}/edit" class="btn btn-outline-primary">Editar</a>
+                        <form method="POST" action="/admin/users/toggle/{{this._id}}">
+                            <button class="btn {{#if this.activo}}btn-outline-danger{{else}}btn-success{{/if}}">
+                                {{#if this.activo}}Inactivar{{else}}Activar{{/if}}
+                            </button>
+                        </form>
+                    </div>
                     {{/if}}
                 </div>
                 {{else}}
