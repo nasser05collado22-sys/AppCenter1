@@ -29,6 +29,7 @@ const buildRegisterContext = async (values = {}, error = null) => ({
 
 const normalizeText = value => value?.trim() || "";
 const normalizeEmail = value => normalizeText(value).toLowerCase();
+const cleanEnv = value => normalizeText(String(value ?? "")).replace(/^["']|["']$/g, "");
 
 const shouldBypassEmail = () => cleanEnv(process.env.AUTH_EMAIL_OPTIONAL || "false") === "true";
 
@@ -40,7 +41,7 @@ const getMailErrorMessage = error => {
     return error.message || "No fue posible enviar el correo.";
 };
 
-const getMissingMailConfigMessage = () => "El correo no esta configurado en este entorno. Revisa BREVO_API_KEY y BREVO_SENDER_EMAIL.";
+const getMissingMailConfigMessage = () => "El correo no esta configurado en este entorno. Revisa SENDGRID_API_KEY y SENDGRID_FROM, o BREVO_API_KEY y BREVO_SENDER_EMAIL.";
 
 export const loginView = (req, res) => {
     if (req.session.user) {
