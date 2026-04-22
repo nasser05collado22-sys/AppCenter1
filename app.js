@@ -14,6 +14,14 @@ import { projectRoot } from "./utils/paths.js";
 
 dotenv.config();
 
+const appEnv = (process.env.APP_ENV || process.env.NODE_ENV || "development")
+    .replace(/^["']|["']$/g, "");
+
+dotenv.config({
+    path: `.env.${appEnv}`,
+    override: false
+});
+
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 const sessionSecret = process.env.SESSION_SECRET || "appcenar-session-secret";

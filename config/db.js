@@ -22,44 +22,52 @@ const defaultCommerceTypes = [
     }
 ];
 
+const cleanEnv = (value) => {
+    if (typeof value !== "string") {
+        return "";
+    }
+
+    return value.trim().replace(/^["']|["']$/g, "");
+};
+
 const bootstrapAdminFromEnv = async () => {
     const adminsCount = await User.countDocuments({ role: "admin" });
 
     if (adminsCount > 0) {
+        console.log("Bootstrap admin omitido: ya existe al menos un admin");
         return;
     }
 
-    const {
-        ADMIN_NAME,
-        ADMIN_LASTNAME,
-        ADMIN_EMAIL,
-        ADMIN_USERNAME,
-        ADMIN_PASSWORD,
-        ADMIN_CEDULA
-    } = process.env;
+    const ADMIN_NAME = cleanEnv(process.env.ADMIN_NAME);
+    const ADMIN_LASTNAME = cleanEnv(process.env.ADMIN_LASTNAME);
+    const ADMIN_EMAIL = cleanEnv(process.env.ADMIN_EMAIL).toLowerCase();
+    const ADMIN_USERNAME = cleanEnv(process.env.ADMIN_USERNAME);
+    const ADMIN_PASSWORD = cleanEnv(process.env.ADMIN_PASSWORD);
+    const ADMIN_CEDULA = cleanEnv(process.env.ADMIN_CEDULA);
 
     if (!ADMIN_NAME || !ADMIN_LASTNAME || !ADMIN_EMAIL || !ADMIN_USERNAME || !ADMIN_PASSWORD || !ADMIN_CEDULA) {
-        console.log("No se creo admin inicial: faltan variables ADMIN_*");
+        console.log("No se creo admin inicial: faltan variables ADMIN_* o estan vacias");
         return;
     }
 
     const exists = await User.findOne({
         $or: [
-            { email: ADMIN_EMAIL.trim() },
-            { username: ADMIN_USERNAME.trim() }
+            { email: ADMIN_EMAIL },
+            { username: ADMIN_USERNAME }
         ]
     });
 
     if (exists) {
+        console.log(`Bootstrap admin omitido: ya existe usuario con email o username del admin (${exists._id})`);
         return;
     }
 
     await User.create({
-        nombre: ADMIN_NAME.trim(),
-        apellido: ADMIN_LASTNAME.trim(),
-        cedula: ADMIN_CEDULA.trim(),
-        email: ADMIN_EMAIL.trim().toLowerCase(),
-        username: ADMIN_USERNAME.trim(),
+        nombre: ADMIN_NAME,
+        apellido: ADMIN_LASTNAME,
+        cedula: ADMIN_CEDULA,
+        email: ADMIN_EMAIL,
+        username: ADMIN_USERNAME,
         password: await bcrypt.hash(ADMIN_PASSWORD, 10),
         role: "admin",
         activo: true
@@ -70,12 +78,16 @@ const bootstrapAdminFromEnv = async () => {
 
 export const connectDB = async () => {
     try {
-        const env = process.env.APP_ENV || process.env.NODE_ENV || "development";
+        const env = cleanEnv(process.env.APP_ENV || process.env.NODE_ENV || "development");
         const mongoUri = env === "qa"
-            ? process.env.MONGO_URI_QA || process.env.MONGO_URI
+            ? cleanEnv(process.env.MONGO_URI_QA) || cleanEnv(process.env.MONGO_URI)
             : env === "production"
-                ? process.env.MONGO_URI_PROD || process.env.MONGO_URI
-                : process.env.MONGO_URI_DEV || process.env.MONGO_URI;
+                ? cleanEnv(process.env.MONGO_URI_PROD) || cleanEnv(process.env.MONGO_URI)
+                : cleanEnv(process.env.MONGO_URI_DEV) || cleanEnv(process.env.MONGO_URI);
+
+        if (!mongoUri) {
+            throw new Error(`No hay cadena de Mongo configurada para el entorno "${env}"`);
+        }
 
         await mongoose.connect(mongoUri);
         await Config.findOneAndUpdate(
@@ -91,7 +103,7 @@ export const connectDB = async () => {
 
         await bootstrapAdminFromEnv();
 
-        console.log("MongoDB conectado");
+        console.log(`MongoDB conectado (${env})`);
         return mongoUri;
     } catch (error) {
         console.log(error);
