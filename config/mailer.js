@@ -10,8 +10,9 @@ const cleanEnv = value => {
     return value.trim().replace(/^["']|["']$/g, "");
 };
 
-const sendGridApiKey = cleanEnv(process.env.SENDGRID_API_KEY);
-const sendGridFrom = cleanEnv(process.env.SENDGRID_FROM);
+const brevoApiKey = cleanEnv(process.env.BREVO_API_KEY);
+const brevoSenderEmail = cleanEnv(process.env.BREVO_SENDER_EMAIL);
+const brevoSenderName = cleanEnv(process.env.BREVO_SENDER_NAME) || "AppCenar";
 
 const normalizeRecipients = value => {
     if (Array.isArray(value)) {
@@ -25,12 +26,12 @@ const normalizeRecipients = value => {
     return [];
 };
 
-export const isMailerConfigured = () => Boolean(sendGridApiKey && sendGridFrom);
+export const isMailerConfigured = () => Boolean(brevoApiKey && brevoSenderEmail);
 
 export const transporter = {
     async sendMail({ from, to, subject, html, text }) {
         if (!isMailerConfigured()) {
-            throw new Error("SendGrid no esta configurado. Revisa SENDGRID_API_KEY y SENDGRID_FROM.");
+            throw new Error("Brevo no esta configurado. Revisa BREVO_API_KEY y BREVO_SENDER_EMAIL.");
         }
 
         const recipients = normalizeRecipients(to);
@@ -39,28 +40,19 @@ export const transporter = {
             throw new Error("No se especifico un destinatario para el correo.");
         }
 
-        const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${sendGridApiKey}`,
+                "api-key": brevoApiKey,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                personalizations: [
-                    {
-                        to: recipients.map(email => ({ email })),
-                        subject
-                    }
-                ],
-                from: {
-                    email: from || sendGridFrom
-                },
-                content: [
-                    {
-                        type: "text/html",
-                        value: html || text || ""
-                    }
-                ]
+                sender: from
+                    ? { email: from, name: brevoSenderName }
+                    : { email: brevoSenderEmail, name: brevoSenderName },
+                to: recipients.map(email => ({ email })),
+                subject,
+                htmlContent: html || text || ""
             })
         });
 
@@ -69,17 +61,17 @@ export const transporter = {
         }
 
         const data = await response.json().catch(() => ({}));
-        const message = data?.errors?.[0]?.message || `SendGrid respondio con estado ${response.status}`;
+        const message = data?.message || `Brevo respondio con estado ${response.status}`;
         throw new Error(message);
     }
 };
 
 export const verifyMailer = async () => {
     if (!isMailerConfigured()) {
-        console.log("Mailer omitido: faltan SENDGRID_API_KEY o SENDGRID_FROM");
+        console.log("Mailer omitido: faltan BREVO_API_KEY o BREVO_SENDER_EMAIL");
         return false;
     }
 
-    console.log("Mailer listo (SendGrid)");
+    console.log("Mailer listo (Brevo)");
     return true;
 };
