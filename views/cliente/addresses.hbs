@@ -1,0 +1,57 @@
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h3 class="mb-3">Nueva direccion</h3>
+
+                {{#if error}}
+                <div class="alert alert-danger">{{error}}</div>
+                {{/if}}
+
+                <form method="POST" action="/cliente/addresses">
+                    <div class="mb-3">
+                        <label class="form-label">Alias</label>
+                        <input name="alias" class="form-control" placeholder="Casa, trabajo..." required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Direccion</label>
+                        <textarea name="direccion" class="form-control" rows="3" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Referencia</label>
+                        <input name="referencia" class="form-control">
+                    </div>
+
+                    <button class="btn btn-success">Guardar direccion</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h3 class="mb-3">Mis direcciones</h3>
+
+                {{#each addresses}}
+                <div class="border rounded p-3 mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="mb-1">{{this.alias}}</h5>
+                            <p class="mb-1">{{this.direccion}}</p>
+                            <small class="text-muted">{{this.referencia}}</small>
+                        </div>
+                        <form method="POST" action="/cliente/addresses/delete/{{this._id}}">
+                            <button class="btn btn-sm btn-outline-danger">Eliminar</button>
+                        </form>
+                    </div>
+                </div>
+                {{else}}
+                <div class="alert alert-info mb-0">Todavia no has agregado direcciones.</div>
+                {{/each}}
+            </div>
+        </div>
+    </div>
+</div>
