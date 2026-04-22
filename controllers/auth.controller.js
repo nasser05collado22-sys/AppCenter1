@@ -40,7 +40,7 @@ const getMailErrorMessage = error => {
     return error.message || "No fue posible enviar el correo.";
 };
 
-const getMissingMailConfigMessage = () => "El correo no esta configurado en este entorno. Revisa SENDGRID_API_KEY y SENDGRID_FROM.";
+const getMissingMailConfigMessage = () => "El correo no esta configurado en este entorno. Revisa BREVO_API_KEY y BREVO_SENDER_EMAIL.";
 
 export const loginView = (req, res) => {
     if (req.session.user) {
