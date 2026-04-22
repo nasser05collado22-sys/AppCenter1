@@ -6,17 +6,17 @@ const defaultCommerceTypes = [
     {
         nombre: "Restaurante",
         descripcion: "Comidas preparadas y menus",
-        icono: ""
+        icono: "/images/commerce-type-placeholder.svg"
     },
     {
         nombre: "Supermercado",
         descripcion: "Compras del hogar y viveres",
-        icono: ""
+        icono: "/images/commerce-type-placeholder.svg"
     },
     {
         nombre: "Farmacia",
         descripcion: "Medicinas y productos de cuidado",
-        icono: ""
+        icono: "/images/commerce-type-placeholder.svg"
     }
 ];
 
@@ -28,7 +28,11 @@ export const connectDB = async () => {
             : process.env.MONGO_URI_DEV || process.env.MONGO_URI;
 
         await mongoose.connect(mongoUri);
-        await Config.findOneAndUpdate({}, { $setOnInsert: { itbis: 18 } }, { upsert: true, new: true });
+        await Config.findOneAndUpdate(
+            {},
+            { $setOnInsert: { itbis: 18 } },
+            { upsert: true, returnDocument: "after" }
+        );
         const typesCount = await CommerceType.countDocuments();
 
         if (typesCount === 0) {
