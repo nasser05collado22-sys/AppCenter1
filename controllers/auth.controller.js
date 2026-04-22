@@ -30,19 +30,17 @@ const buildRegisterContext = async (values = {}, error = null) => ({
 const normalizeText = value => value?.trim() || "";
 const normalizeEmail = value => normalizeText(value).toLowerCase();
 
+const shouldBypassEmail = () => cleanEnv(process.env.AUTH_EMAIL_OPTIONAL || "false") === "true";
+
 const getMailErrorMessage = error => {
     if (!error) {
         return "No fue posible enviar el correo.";
     }
 
-    if (String(error.message || "").includes("Resend")) {
-        return error.message;
-    }
-
     return error.message || "No fue posible enviar el correo.";
 };
 
-const getMissingMailConfigMessage = () => "El correo no esta configurado en este entorno. Revisa RESEND_API_KEY y RESEND_FROM.";
+const getMissingMailConfigMessage = () => "El correo no esta configurado en este entorno. Revisa SENDGRID_API_KEY y SENDGRID_FROM.";
 
 export const loginView = (req, res) => {
     if (req.session.user) {
@@ -115,8 +113,6 @@ export const registerView = async (req, res) => {
 };
 
 export const register = async (req, res) => {
-    let createdUserId = null;
-
     try {
         const errors = validationResult(req);
         const values = { ...req.body };
@@ -160,7 +156,6 @@ export const register = async (req, res) => {
         }
 
         const hashed = await bcrypt.hash(password, 10);
-        const token = crypto.randomBytes(20).toString("hex");
 
         const user = await User.create({
             nombre,
@@ -170,43 +165,63 @@ export const register = async (req, res) => {
             username: generatedUsername,
             role,
             password: hashed,
-            activo: false,
-            token,
+            activo: true,
+            token: null,
             foto: req.file ? `/uploads/${req.file.filename}` : null,
             horarioApertura: role === "comercio" ? horarioApertura : null,
             horarioCierre: role === "comercio" ? horarioCierre : null,
             tipoComercio: role === "comercio" ? tipoComercio : null
         });
 
-        createdUserId = user._id;
+        if (!shouldBypassEmail()) {
+            if (!isMailerConfigured()) {
+                throw new Error(getMissingMailConfigMessage());
+            }
 
-        if (!isMailerConfigured()) {
-            throw new Error(getMissingMailConfigMessage());
+            const token = crypto.randomBytes(20).toString("hex");
+            user.token = token;
+            user.activo = false;
+            await user.save();
+
+            const url = `${process.env.BASE_URL}/activate/${token}`;
+
+            await transporter.sendMail({
+                to: email,
+                subject: "Activa tu cuenta",
+                html: `
+                    <h2>Bienvenido a AppCenar</h2>
+                    <p>Haz clic en el siguiente enlace para activar tu cuenta:</p>
+                    <a href="${url}">Activar cuenta</a>
+                `
+            });
+
+            return res.render("auth/check-email", {
+                email,
+                layout: "auth"
+            });
         }
 
-        const url = `${process.env.BASE_URL}/activate/${token}`;
-
-        await transporter.sendMail({
-            to: email,
-            subject: "Activa tu cuenta",
-            html: `
-                <h2>Bienvenido a AppCenar</h2>
-                <p>Haz clic en el siguiente enlace para activar tu cuenta:</p>
-                <a href="${url}">Activar cuenta</a>
-            `
-        });
-
-        res.render("auth/check-email", {
+        return res.render("auth/check-email", {
             email,
-            layout: "auth"
+            layout: "auth",
+            success: "Cuenta creada y activada correctamente. Ya puedes iniciar sesion.",
+            bypassEmail: true
         });
     } catch (error) {
-        if (createdUserId) {
-            await User.deleteOne({ _id: createdUserId });
-        }
-
         if (error?.code === 11000) {
             return res.render("auth/register", await buildRegisterContext(req.body, "El usuario o el correo ya existen"));
+        }
+
+        if (!shouldBypassEmail()) {
+            const normalizedRole = normalizeText(req.body.role);
+            const generatedUsername = normalizedRole === "comercio"
+                ? normalizeEmail(req.body.email)
+                : normalizeText(req.body.username);
+
+            await User.deleteOne({
+                email: normalizeEmail(req.body.email),
+                username: generatedUsername
+            });
         }
 
         const errorMessage = error?.name === "ValidationError"
@@ -214,7 +229,7 @@ export const register = async (req, res) => {
             : getMailErrorMessage(error);
 
         console.log("Error en registro:", error);
-        res.render("auth/register", await buildRegisterContext(req.body, `Error en el registro: ${errorMessage}`));
+        return res.render("auth/register", await buildRegisterContext(req.body, `Error en el registro: ${errorMessage}`));
     }
 };
 
@@ -260,37 +275,42 @@ export const forgotPassword = async (req, res) => {
         });
     }
 
-    const previousToken = user.token;
     const token = crypto.randomBytes(20).toString("hex");
     user.token = token;
     await user.save();
-
-    try {
+    if (!shouldBypassEmail()) {
         if (!isMailerConfigured()) {
-            throw new Error(getMissingMailConfigMessage());
+            return res.render("auth/forgot", {
+                layout: "auth",
+                error: getMissingMailConfigMessage()
+            });
         }
 
         const url = `${process.env.BASE_URL}/reset/${token}`;
 
-        await transporter.sendMail({
-            to: user.email,
-            subject: "Restablecimiento de contrasena",
-            html: `<a href="${url}">Cambiar contrasena</a>`
-        });
-    } catch (error) {
-        user.token = previousToken || null;
-        await user.save();
+        try {
+            await transporter.sendMail({
+                to: user.email,
+                subject: "Restablecimiento de contrasena",
+                html: `<a href="${url}">Cambiar contrasena</a>`
+            });
 
-        return res.render("auth/forgot", {
-            layout: "auth",
-            error: getMailErrorMessage(error)
-        });
+            return res.render("auth/check-email", {
+                layout: "auth",
+                email: user.email
+            });
+        } catch (error) {
+            user.token = null;
+            await user.save();
+
+            return res.render("auth/forgot", {
+                layout: "auth",
+                error: getMailErrorMessage(error)
+            });
+        }
     }
 
-    res.render("auth/check-email", {
-        layout: "auth",
-        email: user.email
-    });
+    res.redirect(`/reset/${token}`);
 };
 
 export const resetPasswordView = async (req, res) => {

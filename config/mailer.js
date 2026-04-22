@@ -10,8 +10,8 @@ const cleanEnv = value => {
     return value.trim().replace(/^["']|["']$/g, "");
 };
 
-const resendApiKey = cleanEnv(process.env.RESEND_API_KEY);
-const resendFrom = cleanEnv(process.env.RESEND_FROM) || "AppCenar <onboarding@resend.dev>";
+const sendGridApiKey = cleanEnv(process.env.SENDGRID_API_KEY);
+const sendGridFrom = cleanEnv(process.env.SENDGRID_FROM);
 
 const normalizeRecipients = value => {
     if (Array.isArray(value)) {
@@ -25,12 +25,12 @@ const normalizeRecipients = value => {
     return [];
 };
 
-export const isMailerConfigured = () => Boolean(resendApiKey && resendFrom);
+export const isMailerConfigured = () => Boolean(sendGridApiKey && sendGridFrom);
 
 export const transporter = {
     async sendMail({ from, to, subject, html, text }) {
         if (!isMailerConfigured()) {
-            throw new Error("Resend no esta configurado. Revisa RESEND_API_KEY y RESEND_FROM.");
+            throw new Error("SendGrid no esta configurado. Revisa SENDGRID_API_KEY y SENDGRID_FROM.");
         }
 
         const recipients = normalizeRecipients(to);
@@ -39,37 +39,47 @@ export const transporter = {
             throw new Error("No se especifico un destinatario para el correo.");
         }
 
-        const response = await fetch("https://api.resend.com/emails", {
+        const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${resendApiKey}`,
+                Authorization: `Bearer ${sendGridApiKey}`,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                from: from || resendFrom,
-                to: recipients,
-                subject,
-                html,
-                text
+                personalizations: [
+                    {
+                        to: recipients.map(email => ({ email })),
+                        subject
+                    }
+                ],
+                from: {
+                    email: from || sendGridFrom
+                },
+                content: [
+                    {
+                        type: "text/html",
+                        value: html || text || ""
+                    }
+                ]
             })
         });
 
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            throw new Error(data?.message || `Resend respondio con estado ${response.status}`);
+        if (response.ok) {
+            return { ok: true };
         }
 
-        return data;
+        const data = await response.json().catch(() => ({}));
+        const message = data?.errors?.[0]?.message || `SendGrid respondio con estado ${response.status}`;
+        throw new Error(message);
     }
 };
 
 export const verifyMailer = async () => {
     if (!isMailerConfigured()) {
-        console.log("Mailer omitido: faltan RESEND_API_KEY o RESEND_FROM");
+        console.log("Mailer omitido: faltan SENDGRID_API_KEY o SENDGRID_FROM");
         return false;
     }
 
-    console.log("Mailer listo (Resend)");
+    console.log("Mailer listo (SendGrid)");
     return true;
 };
