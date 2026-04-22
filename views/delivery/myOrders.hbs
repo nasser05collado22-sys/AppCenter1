@@ -9,20 +9,14 @@
                 <p class="mb-1"><strong>Pedido:</strong> {{this.numeroPedido}}</p>
                 <p class="mb-1"><strong>Estado:</strong> {{this.estado}}</p>
                 <p class="mb-1"><strong>Total:</strong> RD$ {{formatCurrency this.total}}</p>
-                {{#if (ne this.estado "entregado")}}
+                <p class="mb-1"><strong>Productos:</strong> {{this.productosCount}}</p>
+                {{#if (ne this.estado "completado")}}
                 <p class="mb-0"><strong>Direccion:</strong> {{this.direccionEntrega.direccion}}</p>
                 {{/if}}
             </div>
 
             <div class="d-flex gap-2">
-                {{#if (eq this.estado "en camino")}}
-                <form method="POST" action="/delivery/orders/complete/{{this._id}}">
-                    <button class="btn btn-success">Completar</button>
-                </form>
-                <form method="POST" action="/delivery/orders/leave/{{this._id}}">
-                    <button class="btn btn-outline-danger">Soltar</button>
-                </form>
-                {{/if}}
+                <a href="/delivery/orders/{{this._id}}" class="btn btn-outline-primary">Ver detalle</a>
             </div>
         </div>
     </div>

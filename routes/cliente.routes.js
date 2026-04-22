@@ -4,6 +4,7 @@ import {
     listComercios,
     viewMenu,
     viewOrders,
+    viewOrderDetail,
     viewCart,
     cancelOrder,
     addToCart,
@@ -14,7 +15,11 @@ import {
     toggleFavorite,
     viewFavorites,
     viewAddresses,
+    createAddressView,
     createAddress,
+    editAddressView,
+    updateAddress,
+    confirmDeleteAddressView,
     deleteAddress
 } from "../controllers/cliente.controller.js";
 import { isAuth, hasRole } from "../middlewares/auth.middlewares.js";
@@ -26,12 +31,17 @@ router.get("/cliente/comercios/:typeId", isAuth, hasRole("cliente"), listComerci
 router.post("/cliente/favorites/:comercioId", isAuth, hasRole("cliente"), toggleFavorite);
 router.get("/cliente/favorites", isAuth, hasRole("cliente"), viewFavorites);
 router.get("/cliente/addresses", isAuth, hasRole("cliente"), viewAddresses);
+router.get("/cliente/addresses/new", isAuth, hasRole("cliente"), createAddressView);
 router.post("/cliente/addresses", isAuth, hasRole("cliente"), createAddress);
+router.get("/cliente/addresses/edit/:id", isAuth, hasRole("cliente"), editAddressView);
+router.post("/cliente/addresses/edit/:id", isAuth, hasRole("cliente"), updateAddress);
+router.get("/cliente/addresses/delete/:id", isAuth, hasRole("cliente"), confirmDeleteAddressView);
 router.post("/cliente/addresses/delete/:id", isAuth, hasRole("cliente"), deleteAddress);
 
 router.get("/cliente/menu/:id", isAuth, hasRole("cliente"), viewMenu);
 
 router.get("/cliente/orders", isAuth, hasRole("cliente"), viewOrders);
+router.get("/cliente/orders/:id", isAuth, hasRole("cliente"), viewOrderDetail);
 
 router.post("/cliente/cart/add/:id", isAuth, hasRole("cliente"), addToCart);
 

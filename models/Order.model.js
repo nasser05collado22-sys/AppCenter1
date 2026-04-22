@@ -10,6 +10,7 @@ const orderSchema = new mongoose.Schema({
         {
             productoId: String,
             nombre: String,
+            imagen: String,
             precio: Number,
             cantidad: Number
         }
@@ -21,7 +22,7 @@ const orderSchema = new mongoose.Schema({
 
     estado: {
         type: String,
-        enum: ["pendiente", "preparando", "listo", "en camino", "entregado", "cancelado"],
+        enum: ["pendiente", "preparando", "listo", "en proceso", "completado", "cancelado"],
         default: "pendiente"
     },
 

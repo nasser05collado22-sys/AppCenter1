@@ -12,17 +12,12 @@
                 <p class="mb-0"><strong>Direccion:</strong> {{this.direccionEntrega.direccion}}</p>
             </div>
 
-            {{#if (eq this.estado "pendiente")}}
-            <form method="POST" action="/comercio/orders/{{this._id}}">
-                <button class="btn btn-outline-warning">Pasar a preparando</button>
-            </form>
-            {{/if}}
-
-            {{#if (eq this.estado "preparando")}}
-            <form method="POST" action="/comercio/orders/{{this._id}}">
-                <button class="btn btn-success">Marcar como listo</button>
-            </form>
-            {{/if}}
+            <div class="d-flex gap-2">
+                <a href="/comercio/orders/{{this._id}}" class="btn btn-outline-dark">Ver detalle</a>
+                {{#if (eq this.estado "pendiente")}}
+                <a href="/comercio/orders/{{this._id}}/assign" class="btn btn-primary">Asignar delivery</a>
+                {{/if}}
+            </div>
         </div>
     </div>
 </div>

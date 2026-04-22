@@ -1,6 +1,8 @@
 import bcrypt from "bcrypt";
+import { Category } from "../models/Category.model.js";
 import { CommerceType } from "../models/CommerceType.model.js";
 import { Config } from "../models/Config.model.js";
+import { Favorite } from "../models/Favorite.model.js";
 import { Order } from "../models/Order.model.js";
 import { Product } from "../models/Product.model.js";
 import { User } from "../models/User.model.js";
@@ -53,7 +55,7 @@ const buildUsersView = async role => {
     const usersWithStats = await Promise.all(users.map(async user => ({
         ...user,
         ordersCount: role === "delivery"
-            ? await Order.countDocuments({ delivery: user._id, estado: "entregado" })
+            ? await Order.countDocuments({ delivery: user._id, estado: "completado" })
             : role === "comercio"
                 ? await Order.countDocuments({ comercio: user._id })
                 : await Order.countDocuments({ cliente: user._id })
@@ -150,10 +152,22 @@ export const updateCommerceType = async (req, res) => {
 };
 
 export const deleteCommerceType = async (req, res) => {
-    await User.deleteMany({
+    const comercios = await User.find({
         role: "comercio",
         tipoComercio: req.params.id
-    });
+    }).select("_id").lean();
+
+    const comercioIds = comercios.map(comercio => comercio._id);
+
+    if (comercioIds.length > 0) {
+        await Promise.all([
+            Favorite.deleteMany({ comercio: { $in: comercioIds } }),
+            Order.deleteMany({ comercio: { $in: comercioIds } }),
+            Product.deleteMany({ comercio: { $in: comercioIds } }),
+            Category.deleteMany({ comercio: { $in: comercioIds } }),
+            User.deleteMany({ _id: { $in: comercioIds } })
+        ]);
+    }
 
     await CommerceType.deleteOne({ _id: req.params.id });
     res.redirect("/admin/commerce-types");
@@ -162,6 +176,16 @@ export const deleteCommerceType = async (req, res) => {
 export const adminsView = async (req, res) => {
     const admins = await User.find({ role: "admin" }).sort({ createdAt: -1 }).lean();
     res.render("admin/admins", { admins });
+};
+
+export const editCommerceTypeView = async (req, res) => {
+    const type = await CommerceType.findById(req.params.id).lean();
+
+    if (!type) {
+        return res.redirect("/admin/commerce-types");
+    }
+
+    res.render("admin/edit-commerce-type", { type });
 };
 
 export const editAdminView = async (req, res) => {

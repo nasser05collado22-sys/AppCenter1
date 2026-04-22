@@ -1,34 +1,33 @@
 import { Order } from "../models/Order.model.js";
 
+const buildOrdersForView = orders => orders.map(order => ({
+    ...order,
+    productosCount: order.productos?.reduce((sum, item) => sum + (item.cantidad || 0), 0) || 0
+}));
+
 export const deliveryHome = async (req, res) => {
-    const [availableCount, activeOrder] = await Promise.all([
-        Order.countDocuments({
-            estado: { $in: ["pendiente", "listo"] },
-            delivery: null
-        }),
+    const [activeOrder, completedOrders, orders] = await Promise.all([
         Order.findOne({
             delivery: req.session.user.id,
-            estado: "en camino"
-        }).lean()
+            estado: "en proceso"
+        }).lean(),
+        Order.countDocuments({
+            delivery: req.session.user.id,
+            estado: "completado"
+        }),
+        Order.find({
+            delivery: req.session.user.id
+        })
+            .populate("comercio")
+            .sort({ createdAt: -1 })
+            .lean()
     ]);
 
     res.render("delivery/home", {
-        availableCount,
-        hasActiveOrder: Boolean(activeOrder)
+        hasActiveOrder: Boolean(activeOrder),
+        completedOrders,
+        orders: buildOrdersForView(orders)
     });
-};
-
-export const availableOrders = async (req, res) => {
-    const orders = await Order.find({
-        estado: { $in: ["pendiente", "listo"] },
-        delivery: null
-    })
-        .populate("cliente")
-        .populate("comercio")
-        .sort({ createdAt: -1 })
-        .lean();
-
-    res.render("delivery/orders", { orders });
 };
 
 export const myOrders = async (req, res) => {
@@ -39,35 +38,27 @@ export const myOrders = async (req, res) => {
         .sort({ createdAt: -1 })
         .lean();
 
-    res.render("delivery/myOrders", { orders });
+    res.render("delivery/myOrders", {
+        orders: buildOrdersForView(orders)
+    });
 };
 
-export const acceptOrder = async (req, res) => {
-    const order = await Order.findById(req.params.id);
+export const viewOrderDetail = async (req, res) => {
+    const order = await Order.findOne({
+        _id: req.params.id,
+        delivery: req.session.user.id
+    })
+        .populate("comercio")
+        .lean();
 
     if (!order) {
-        return res.redirect("/delivery/orders");
+        return res.redirect("/delivery");
     }
 
-    if (order.delivery || !["pendiente", "listo"].includes(order.estado)) {
-        return res.send("Este pedido ya no está disponible");
-    }
-
-    const existing = await Order.findOne({
-        delivery: req.session.user.id,
-        estado: "en camino"
+    res.render("delivery/order-detail", {
+        order,
+        productosCount: order.productos?.reduce((sum, item) => sum + (item.cantidad || 0), 0) || 0
     });
-
-    if (existing) {
-        return res.send("Ya tienes un pedido en proceso");
-    }
-
-    order.estado = "en camino";
-    order.delivery = req.session.user.id;
-
-    await order.save();
-
-    res.redirect("/delivery/myOrders");
 };
 
 export const completeOrder = async (req, res) => {
@@ -77,23 +68,12 @@ export const completeOrder = async (req, res) => {
         return res.redirect("/delivery/myOrders");
     }
 
-    order.estado = "entregado";
-    await order.save();
-
-    res.redirect("/delivery/myOrders");
-};
-
-export const leaveOrder = async (req, res) => {
-    const order = await Order.findById(req.params.id);
-
-    if (!order || order.delivery?.toString() !== req.session.user.id) {
-        return res.redirect("/delivery/myOrders");
+    if (order.estado !== "en proceso") {
+        return res.redirect(`/delivery/orders/${order._id}`);
     }
 
-    order.estado = "listo";
-    order.delivery = null;
-
+    order.estado = "completado";
     await order.save();
 
-    res.redirect("/delivery/orders");
+    res.redirect(`/delivery/orders/${order._id}`);
 };

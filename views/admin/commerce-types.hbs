@@ -41,25 +41,10 @@
                             <h5 class="mb-1">{{this.nombre}}</h5>
                             <p class="text-muted mb-1">{{this.descripcion}}</p>
                             <p class="mb-2"><strong>Comercios:</strong> {{this.comerciosCount}}</p>
-
-                            <form method="POST" action="/admin/commerce-types/{{this._id}}" enctype="multipart/form-data" class="row g-2 mb-2">
-                                <div class="col-md-4">
-                                    <input name="nombre" class="form-control" value="{{this.nombre}}" required>
-                                </div>
-                                <div class="col-md-4">
-                                    <input name="descripcion" class="form-control" value="{{this.descripcion}}" required>
-                                </div>
-                                <div class="col-md-4">
-                                    <input type="file" name="icono" class="form-control">
-                                </div>
-                                <div class="col-12">
-                                    <button class="btn btn-sm btn-outline-primary">Guardar cambios</button>
-                                </div>
-                            </form>
-
-                            <form method="POST" action="/admin/commerce-types/delete/{{this._id}}">
-                                <button class="btn btn-sm btn-outline-danger">Eliminar</button>
-                            </form>
+                            <div class="d-flex gap-2">
+                                <a href="/admin/commerce-types/{{this._id}}/edit" class="btn btn-sm btn-outline-primary">Editar</a>
+                                <a href="/admin/commerce-types/delete/{{this._id}}" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                            </div>
                         </div>
                     </div>
                 </div>
