@@ -35,18 +35,14 @@ const getMailErrorMessage = error => {
         return "No fue posible enviar el correo.";
     }
 
-    if (error.code === "EAUTH") {
-        return "No fue posible autenticar con Gmail. Revisa EMAIL_USER y EMAIL_PASS.";
-    }
-
-    if (error.code === "ECONNECTION" || error.code === "ETIMEDOUT") {
-        return "No fue posible conectarse al servidor de correo. Revisa tu conexion o la configuracion SMTP.";
+    if (String(error.message || "").includes("Resend")) {
+        return error.message;
     }
 
     return error.message || "No fue posible enviar el correo.";
 };
 
-const getMissingMailConfigMessage = () => "El correo no esta configurado en este entorno. Revisa EMAIL_USER y EMAIL_PASS.";
+const getMissingMailConfigMessage = () => "El correo no esta configurado en este entorno. Revisa RESEND_API_KEY y RESEND_FROM.";
 
 export const loginView = (req, res) => {
     if (req.session.user) {
@@ -191,7 +187,6 @@ export const register = async (req, res) => {
         const url = `${process.env.BASE_URL}/activate/${token}`;
 
         await transporter.sendMail({
-            from: `"AppCenar" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: "Activa tu cuenta",
             html: `
@@ -278,7 +273,6 @@ export const forgotPassword = async (req, res) => {
         const url = `${process.env.BASE_URL}/reset/${token}`;
 
         await transporter.sendMail({
-            from: `"AppCenar" <${process.env.EMAIL_USER}>`,
             to: user.email,
             subject: "Restablecimiento de contrasena",
             html: `<a href="${url}">Cambiar contrasena</a>`

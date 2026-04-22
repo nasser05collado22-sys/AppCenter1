@@ -1,6 +1,4 @@
-import nodemailer from "nodemailer";
 import dotenv from "dotenv";
-import dns from "dns";
 
 dotenv.config();
 
@@ -12,75 +10,66 @@ const cleanEnv = value => {
     return value.trim().replace(/^["']|["']$/g, "");
 };
 
-const emailUser = cleanEnv(process.env.EMAIL_USER);
-const emailPass = cleanEnv(process.env.EMAIL_PASS);
-const smtpHost = cleanEnv(process.env.SMTP_HOST);
-const smtpPort = Number(cleanEnv(process.env.SMTP_PORT) || 0);
-const smtpSecure = cleanEnv(process.env.SMTP_SECURE) === "true";
-const lookupIpv4 = (hostname, options, callback) => {
-    const done = typeof options === "function" ? options : callback;
+const resendApiKey = cleanEnv(process.env.RESEND_API_KEY);
+const resendFrom = cleanEnv(process.env.RESEND_FROM) || "AppCenar <onboarding@resend.dev>";
 
-    dns.lookup(hostname, { family: 4, all: false }, done);
-};
-
-const buildTransport = () => {
-    if (smtpHost && smtpPort) {
-        return nodemailer.createTransport({
-            host: smtpHost,
-            port: smtpPort,
-            secure: smtpSecure,
-            lookup: lookupIpv4,
-            family: 4,
-            tls: {
-                servername: smtpHost
-            },
-            connectionTimeout: 10000,
-            greetingTimeout: 10000,
-            socketTimeout: 10000,
-            auth: emailUser && emailPass
-                ? {
-                    user: emailUser,
-                    pass: emailPass
-                }
-                : undefined
-        });
+const normalizeRecipients = value => {
+    if (Array.isArray(value)) {
+        return value.filter(Boolean);
     }
 
-    return nodemailer.createTransport({
-        service: "gmail",
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        lookup: lookupIpv4,
-        family: 4,
-        tls: {
-            servername: "smtp.gmail.com"
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
-        auth: {
-            user: emailUser,
-            pass: emailPass
-        }
-    });
+    if (typeof value === "string" && value.trim()) {
+        return [value.trim()];
+    }
+
+    return [];
 };
 
-export const isMailerConfigured = () => Boolean(emailUser && emailPass);
-export const transporter = buildTransport();
+export const isMailerConfigured = () => Boolean(resendApiKey && resendFrom);
+
+export const transporter = {
+    async sendMail({ from, to, subject, html, text }) {
+        if (!isMailerConfigured()) {
+            throw new Error("Resend no esta configurado. Revisa RESEND_API_KEY y RESEND_FROM.");
+        }
+
+        const recipients = normalizeRecipients(to);
+
+        if (recipients.length === 0) {
+            throw new Error("No se especifico un destinatario para el correo.");
+        }
+
+        const response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${resendApiKey}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                from: from || resendFrom,
+                to: recipients,
+                subject,
+                html,
+                text
+            })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(data?.message || `Resend respondio con estado ${response.status}`);
+        }
+
+        return data;
+    }
+};
 
 export const verifyMailer = async () => {
     if (!isMailerConfigured()) {
-        console.log("Mailer omitido: faltan EMAIL_USER o EMAIL_PASS");
+        console.log("Mailer omitido: faltan RESEND_API_KEY o RESEND_FROM");
         return false;
     }
 
-    try {
-        await transporter.verify();
-        console.log("Mailer listo");
-        return true;
-    } catch (error) {
-        console.log("Error verificando mailer:", error.message);
-        return false;
-    }
+    console.log("Mailer listo (Resend)");
+    return true;
 };
