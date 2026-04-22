@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { validationResult } from "express-validator";
-import { transporter } from "../config/mailer.js";
+import { isMailerConfigured, transporter } from "../config/mailer.js";
 import { CommerceType } from "../models/CommerceType.model.js";
 import { User } from "../models/User.model.js";
 
@@ -45,6 +45,8 @@ const getMailErrorMessage = error => {
 
     return error.message || "No fue posible enviar el correo.";
 };
+
+const getMissingMailConfigMessage = () => "El correo no esta configurado en este entorno. Revisa EMAIL_USER y EMAIL_PASS.";
 
 export const loginView = (req, res) => {
     if (req.session.user) {
@@ -182,6 +184,10 @@ export const register = async (req, res) => {
 
         createdUserId = user._id;
 
+        if (!isMailerConfigured()) {
+            throw new Error(getMissingMailConfigMessage());
+        }
+
         const url = `${process.env.BASE_URL}/activate/${token}`;
 
         await transporter.sendMail({
@@ -265,6 +271,10 @@ export const forgotPassword = async (req, res) => {
     await user.save();
 
     try {
+        if (!isMailerConfigured()) {
+            throw new Error(getMissingMailConfigMessage());
+        }
+
         const url = `${process.env.BASE_URL}/reset/${token}`;
 
         await transporter.sendMail({
