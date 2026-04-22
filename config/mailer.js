@@ -3,10 +3,59 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-export const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+const cleanEnv = value => {
+    if (typeof value !== "string") {
+        return "";
     }
-});
+
+    return value.trim().replace(/^["']|["']$/g, "");
+};
+
+const emailUser = cleanEnv(process.env.EMAIL_USER);
+const emailPass = cleanEnv(process.env.EMAIL_PASS);
+const smtpHost = cleanEnv(process.env.SMTP_HOST);
+const smtpPort = Number(cleanEnv(process.env.SMTP_PORT) || 0);
+const smtpSecure = cleanEnv(process.env.SMTP_SECURE) === "true";
+
+const buildTransport = () => {
+    if (smtpHost && smtpPort) {
+        return nodemailer.createTransport({
+            host: smtpHost,
+            port: smtpPort,
+            secure: smtpSecure,
+            auth: emailUser && emailPass
+                ? {
+                    user: emailUser,
+                    pass: emailPass
+                }
+                : undefined
+        });
+    }
+
+    return nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+            user: emailUser,
+            pass: emailPass
+        }
+    });
+};
+
+export const isMailerConfigured = () => Boolean(emailUser && emailPass);
+export const transporter = buildTransport();
+
+export const verifyMailer = async () => {
+    if (!isMailerConfigured()) {
+        console.log("Mailer omitido: faltan EMAIL_USER o EMAIL_PASS");
+        return false;
+    }
+
+    try {
+        await transporter.verify();
+        console.log("Mailer listo");
+        return true;
+    } catch (error) {
+        console.log("Error verificando mailer:", error.message);
+        return false;
+    }
+};

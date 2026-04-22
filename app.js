@@ -5,6 +5,7 @@ import MongoStore from "connect-mongo";
 import path from "path";
 import { engine } from "express-handlebars";
 import { connectDB } from "./config/db.js";
+import { verifyMailer } from "./config/mailer.js";
 import adminRoutes from "./routes/admin.routes.js";
 import router from "./routes/auth.routes.js";
 import clienteRouter from "./routes/cliente.routes.js";
@@ -26,6 +27,7 @@ const app = express();
 const port = Number(process.env.PORT) || 3000;
 const sessionSecret = process.env.SESSION_SECRET || "appcenar-session-secret";
 const mongoUri = await connectDB();
+await verifyMailer();
 
 app.set("trust proxy", 1);
 app.use(express.json());
