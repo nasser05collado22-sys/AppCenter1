@@ -1,0 +1,25 @@
+<h2 class="mb-4">Panel de delivery</h2>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <p class="text-muted mb-1">Pedidos disponibles</p>
+                <h3>{{availableCount}}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <p class="text-muted mb-1">Estado actual</p>
+                <h3>{{#if hasActiveOrder}}Ocupado{{else}}Disponible{{/if}}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex gap-2">
+    <a href="/delivery/orders" class="btn btn-success">Ver pedidos disponibles</a>
+    <a href="/delivery/myOrders" class="btn btn-outline-dark">Mis pedidos</a>
+</div>

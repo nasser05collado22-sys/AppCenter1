@@ -1,0 +1,34 @@
+<h2 class="mb-4">Panel del comercio</h2>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <p class="text-muted mb-1">Productos</p>
+                <h3>{{productsCount}}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <p class="text-muted mb-1">Categorias</p>
+                <h3>{{categoriesCount}}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <p class="text-muted mb-1">Pedidos activos</p>
+                <h3>{{activeOrders}}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex gap-2">
+    <a href="/comercio/categories" class="btn btn-outline-dark">Categorias</a>
+    <a href="/comercio/products" class="btn btn-success">Productos</a>
+    <a href="/comercio/orders" class="btn btn-primary">Pedidos</a>
+</div>
