@@ -23,6 +23,9 @@ const buildTransport = () => {
             host: smtpHost,
             port: smtpPort,
             secure: smtpSecure,
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 10000,
             auth: emailUser && emailPass
                 ? {
                     user: emailUser,
@@ -34,6 +37,9 @@ const buildTransport = () => {
 
     return nodemailer.createTransport({
         service: "gmail",
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
         auth: {
             user: emailUser,
             pass: emailPass

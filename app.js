@@ -27,7 +27,9 @@ const app = express();
 const port = Number(process.env.PORT) || 3000;
 const sessionSecret = process.env.SESSION_SECRET || "appcenar-session-secret";
 const mongoUri = await connectDB();
-await verifyMailer();
+verifyMailer().catch(error => {
+    console.log("Error inicializando mailer:", error.message);
+});
 
 app.set("trust proxy", 1);
 app.use(express.json());
